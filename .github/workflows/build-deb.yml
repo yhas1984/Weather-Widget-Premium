@@ -32,11 +32,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${GITHUB_REF_NAME}" weather-widget-premium_*_amd64.deb --clobber
+          gh release upload "${GITHUB_REF_NAME}" weather-widget-premium_*_amd64.deb weather-widget-premium_*_amd64.deb.sha256 --clobber
       - name: Upload workflow artifact (fallback)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: weather-widget-premium-${{ github.ref_name }}
-          path: weather-widget-premium_*_amd64.deb
+          path: |
+            weather-widget-premium_*_amd64.deb
+            weather-widget-premium_*_amd64.deb.sha256
           if-no-files-found: error

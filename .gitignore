@@ -8,3 +8,4 @@ dist/
 .venv/
 .package-build/
 weather-widget-premium_*_amd64.deb
+weather-widget-premium_*_amd64.deb.sha256

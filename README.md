@@ -127,11 +127,21 @@ El widget conserva el último estado válido en caché y lo muestra si Open-Mete
 
 ## Instalación desde `.deb`
 
-Los paquetes compilados se publican como assets en la sección Releases del repositorio Premium. Descarga el archivo `weather-widget-premium_*_amd64.deb` y ejecuta:
+[Descargar Weather Widget Premium 6.0.0 para Debian/Ubuntu](https://github.com/yhas1984/Weather-Widget-Premium/releases/download/v6.0.0/weather-widget-premium_6.0.0_amd64.deb)
+
+Después de descargar el archivo, instálalo con:
 
 ```bash
 sudo apt install ./weather-widget-premium_*_amd64.deb
 ```
+
+Para desinstalar la aplicación:
+
+```bash
+sudo apt remove weather-widget-premium
+```
+
+La desinstalación retira el ejecutable, el lanzador y el icono. Las preferencias personales permanecen en `~/.config/weather-widget-premium` para conservarlas si se reinstala la aplicación.
 
 La API pública de Open-Meteo funciona sin credenciales para uso no comercial dentro de sus límites. La atribución a Open-Meteo y a sus fuentes de datos es obligatoria; una distribución comercial debe usar el plan/licencia correspondiente. En X11 se aplican hints EWMH de escritorio; en Wayland el comportamiento exacto de “Mostrar escritorio” depende del compositor.
 
