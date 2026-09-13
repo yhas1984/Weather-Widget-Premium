@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
+import threading
+
+from PyQt6.QtCore import QObject, pyqtSignal
 
 
 class WorkerSignals(QObject):
@@ -9,19 +11,42 @@ class WorkerSignals(QObject):
     finished = pyqtSignal()
 
 
-class WeatherWorker(QRunnable):
-    def __init__(self, service, manual_city: str = ""):
-        super().__init__()
+class WeatherWorker:
+    def __init__(
+        self,
+        service,
+        manual_city: str = "",
+        location: dict | None = None,
+        allow_ip_location: bool = True,
+    ):
         self.service = service
         self.manual_city = manual_city
+        self.location = location
+        self.allow_ip_location = allow_ip_location
         self.signals = WorkerSignals()
+        self.thread = threading.Thread(target=self.run, name="weather-fetch", daemon=True)
 
-    @pyqtSlot()
+    def start(self):
+        self.thread.start()
+
     def run(self):
         try:
-            lat, lon, city = self.service.locate(self.manual_city)
-            self.signals.result.emit(self.service.fetch(lat, lon, city))
+            if self.location:
+                lat = float(self.location["latitude"])
+                lon = float(self.location["longitude"])
+                city = str(self.location["label"])
+            else:
+                lat, lon, city = self.service.locate(self.manual_city, self.allow_ip_location)
+            self._emit(self.signals.result, self.service.fetch(lat, lon, city))
         except Exception as exc:
-            self.signals.error.emit(str(exc))
+            self._emit(self.signals.error, str(exc))
         finally:
-            self.signals.finished.emit()
+            self._emit(self.signals.finished)
+
+    @staticmethod
+    def _emit(signal, *args):
+        try:
+            signal.emit(*args)
+        except RuntimeError:
+            # The UI may already be gone; daemon workers must then exit quietly.
+            pass

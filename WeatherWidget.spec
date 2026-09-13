@@ -1,16 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all
-
 datas = []
 binaries = []
-hiddenimports = ['PyQt6']
-tmp_ret = collect_all('PyQt6')
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
+hiddenimports = []
 
 a = Analysis(
-    ['weather_widget.py'],
+    ['run_v6.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,

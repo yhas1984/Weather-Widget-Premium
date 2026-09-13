@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-5.0.1}"
+VERSION="${1:-6.0.0}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="${ROOT}/.package-build"
 DIST="${ROOT}/dist"
@@ -15,7 +15,6 @@ install -m 0755 "${DIST}/WeatherWidget" "${PKG}/opt/weather-widget/WeatherWidget
 
 cat > "${PKG}/usr/bin/weather-widget" <<'EOF'
 #!/bin/sh
-export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
 exec /opt/weather-widget/WeatherWidget "$@"
 EOF
 chmod 0755 "${PKG}/usr/bin/weather-widget"
@@ -24,7 +23,7 @@ cat > "${PKG}/usr/share/applications/weather-widget.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Weather Widget
-Comment=Weather Widget V5
+Comment=Weather Widget V6 premium para Linux
 Exec=/usr/bin/weather-widget
 Terminal=false
 Categories=Utility;
@@ -46,8 +45,8 @@ Priority: optional
 Architecture: amd64
 Maintainer: yhas1984
 Depends: libxcb-xinerama0
-Description: Weather Widget V5
- Desktop weather widget using Open-Meteo and optional WeatherAPI fallback.
+Description: Weather Widget V6 premium
+ Desktop weather widget with native X11 and Wayland support using Open-Meteo.
 EOF
 
 OUT="${ROOT}/weather-widget_${VERSION}_amd64.deb"
