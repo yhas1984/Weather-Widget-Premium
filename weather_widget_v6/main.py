@@ -23,8 +23,9 @@ def _normalize_qt_platform() -> None:
 def main() -> int:
     _normalize_qt_platform()
     app = QApplication(sys.argv)
-    app.setApplicationName("Weather Widget")
-    app.setOrganizationName("WeatherWidget")
+    app.setApplicationName("Weather Widget Premium")
+    app.setOrganizationName("WeatherWidgetPremium")
+    app.setDesktopFileName("weather-widget-premium")
     widget = PremiumWeatherWidget()
     widget.show()
 

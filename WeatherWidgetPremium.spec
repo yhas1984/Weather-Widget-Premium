@@ -4,7 +4,7 @@ binaries = []
 hiddenimports = []
 
 a = Analysis(
-    ['run_v6.py'],
+    ['run_premium.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,
@@ -19,7 +19,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, a.binaries, a.datas, [],
-    name='WeatherWidget', debug=False, bootloader_ignore_signals=False,
+    name='WeatherWidgetPremium', debug=False, bootloader_ignore_signals=False,
     strip=False, upx=True, upx_exclude=[], runtime_tmpdir=None,
     console=False, disable_windowed_traceback=False, argv_emulation=False,
     target_arch=None, codesign_identity=None, entitlements_file=None,

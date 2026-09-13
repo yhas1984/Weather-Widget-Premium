@@ -69,6 +69,10 @@ def api_payload():
 
 
 class ModelAndServiceTests(unittest.TestCase):
+    def test_premium_identity_uses_an_independent_config_directory(self):
+        self.assertEqual(config.DEFAULT_APP_DIR.name, "weather-widget-premium")
+        self.assertNotEqual(config.DEFAULT_APP_DIR, config.LEGACY_V6_APP_DIR)
+
     def test_invalid_settings_are_sanitized(self):
         with tempfile.TemporaryDirectory() as directory:
             app_dir = Path(directory)

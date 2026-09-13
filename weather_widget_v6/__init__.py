@@ -1,3 +1,3 @@
-"""Weather Widget V6 premium desktop experience."""
+"""Weather Widget Premium desktop experience for Linux."""
 
 __version__ = "6.0.0"

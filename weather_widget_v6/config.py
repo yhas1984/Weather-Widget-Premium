@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-APP_DIR = Path.home() / ".config" / "weather-widget"
+CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME") or (Path.home() / ".config"))
+DEFAULT_APP_DIR = CONFIG_HOME / "weather-widget-premium"
+LEGACY_V6_APP_DIR = CONFIG_HOME / "weather-widget"
+APP_DIR = DEFAULT_APP_DIR
 SETTINGS_FILE = APP_DIR / "settings.json"
 CACHE_FILE = APP_DIR / "cache.json"
 CONFIG_VERSION = 3
@@ -33,6 +37,17 @@ DEFAULT_SETTINGS = {
 
 def _ensure_dir() -> None:
     APP_DIR.mkdir(parents=True, exist_ok=True)
+    if APP_DIR != DEFAULT_APP_DIR:
+        return
+    # V6 originally shared the generic weather-widget directory. Copy its data
+    # once so Premium starts independently without discarding user preferences.
+    for name, destination in (("settings.json", SETTINGS_FILE), ("cache.json", CACHE_FILE)):
+        source = LEGACY_V6_APP_DIR / name
+        if not destination.exists() and source.is_file():
+            try:
+                shutil.copy2(source, destination)
+            except OSError:
+                pass
 
 
 def load_settings() -> dict:

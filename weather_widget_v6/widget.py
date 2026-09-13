@@ -45,7 +45,7 @@ class PremiumWeatherWidget(QMainWindow):
         self.clock.start()
         self.particles = [{"x": random.random(), "y": random.random(), "speed": random.uniform(.035, .095), "size": random.uniform(1.2, 3.0), "depth": random.random()} for _ in range(34)]
 
-        self.setWindowTitle("Weather Widget 6")
+        self.setWindowTitle("Weather Widget Premium")
         self.resize(self.WIDTH, self.COLLAPSED)
         self.setMinimumWidth(360)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnBottomHint | Qt.WindowType.Tool)
@@ -462,7 +462,7 @@ class PremiumWeatherWidget(QMainWindow):
             painter.setPen(self.temperature_color(item.temp_min, 175)); painter.drawText(QRectF(x + width / 2 + 8, top + 53, width / 2 - 8, 15), Qt.AlignmentFlag.AlignLeft, f"{round(item.temp_min)}°")
 
     def draw_loading(self, painter):
-        painter.setPen(self.color("text", 230)); painter.setFont(QFont("Inter", 13, QFont.Weight.DemiBold)); painter.drawText(28, 56, "Weather Widget")
+        painter.setPen(self.color("text", 230)); painter.setFont(QFont("Inter", 13, QFont.Weight.DemiBold)); painter.drawText(28, 56, "Weather Premium")
         painter.setPen(self.color("muted", 170)); painter.setFont(QFont("Inter", 9)); painter.drawText(28, 81, self.offline_message or "Preparando el tiempo…")
         painter.setPen(QPen(self.color("accent", 220), 3, cap=Qt.PenCapStyle.RoundCap)); painter.drawArc(QRectF(29, 110, 34, 34), int((self.phase * 180 / math.pi) * 16), 245 * 16)
 

@@ -1,6 +1,6 @@
-# Weather Widget
+# Weather Widget Premium
 
-Widget de escritorio premium para Linux (X11 y Wayland) con datos de Open-Meteo.
+Widget meteorológico de escritorio premium para Linux (X11 y Wayland), desarrollado como producto independiente de Weather Widget Classic.
 
 ![Weather Widget](icon.png)
 
@@ -15,7 +15,7 @@ Widget de escritorio premium para Linux (X11 y Wayland) con datos de Open-Meteo.
 | **Expandible** | Clic para ver humedad, viento y sensación térmica |
 | **Glassmorphism** | Opacidad de fondo de 0–80% y temas Atmospheric, Glass, Minimal y Pearl |
 | **Arrastrable** | Mover el widget con el ratón |
-| **Auto-inicio** | Se ejecuta automáticamente al iniciar sesión |
+| **Instalación independiente** | Ejecutable, paquete, configuración y entrada de aplicaciones propios |
 | **Forecast completo** | Previsión horaria y diaria expandible sin clipping |
 | **Red no bloqueante** | Las consultas se ejecutan fuera del hilo de interfaz |
 | **Unidades reales** | Cambio entre °C/km/h/mm y °F/mph/in desde el menú contextual |
@@ -30,18 +30,18 @@ Widget de escritorio premium para Linux (X11 y Wayland) con datos de Open-Meteo.
 ## Instalación rápida
 
 ```bash
-git clone https://github.com/yhas1984/Weather-Widget.git
-cd Weather-Widget
+git clone https://github.com/yhas1984/Weather-Widget-Premium.git
+cd Weather-Widget-Premium
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python run_v6.py
+python run_premium.py
 ```
 
 ## Uso
 
 ```bash
-python run_v6.py
+python run_premium.py
 ```
 
 El widget aparecerá en la esquina inferior derecha de la pantalla.
@@ -81,10 +81,9 @@ El repositorio incluye múltiples versiones del icono:
 ## Estructura
 
 ```
-Weather-Widget/
-├── run_v6.py            # Lanzador actual
+Weather-Widget-Premium/
+├── run_premium.py       # Lanzador principal
 ├── weather_widget_v6/   # Modelos, red, integración Linux y UI premium
-├── weather_widget.py    # Implementación histórica V5
 ├── requirements.txt     # Dependencias
 ├── icon.png             # Icono principal
 ├── icon.svg             # Icono SVG
@@ -105,10 +104,10 @@ El widget conserva el último estado válido en caché y lo muestra si Open-Mete
 
 ## Instalación desde `.deb`
 
-Los paquetes compilados se publican como assets en la sección [Releases](https://github.com/yhas1984/Weather-Widget/releases). Descarga el archivo `weather-widget_*_amd64.deb` y ejecuta:
+Los paquetes compilados se publican como assets en la sección Releases del repositorio Premium. Descarga el archivo `weather-widget-premium_*_amd64.deb` y ejecuta:
 
 ```bash
-sudo apt install ./weather-widget_*_amd64.deb
+sudo apt install ./weather-widget-premium_*_amd64.deb
 ```
 
 La API pública de Open-Meteo funciona sin credenciales para uso no comercial dentro de sus límites. La atribución a Open-Meteo y a sus fuentes de datos es obligatoria; una distribución comercial debe usar el plan/licencia correspondiente. En X11 se aplican hints EWMH de escritorio; en Wayland el comportamiento exacto de “Mostrar escritorio” depende del compositor.
@@ -120,7 +119,9 @@ python -m pip install -r requirements.txt
 bash packaging/build-deb.sh 6.0.0
 ```
 
-El paquete detecta automáticamente la plataforma Qt disponible y no fuerza XCB bajo Wayland.
+El paquete instala `weather-widget-premium`, `/usr/bin/weather-widget-premium` y `weather-widget-premium.desktop`. Utiliza `~/.config/weather-widget-premium`, por lo que puede convivir con Weather Widget Classic sin sobrescribir sus preferencias. La primera ejecución copia, si existen, los ajustes V6 anteriores desde `~/.config/weather-widget` y después mantiene ambas configuraciones separadas.
+
+El ejecutable detecta automáticamente la plataforma Qt disponible y no fuerza XCB bajo Wayland.
 
 ## Licencia
 

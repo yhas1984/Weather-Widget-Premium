@@ -31,7 +31,7 @@ class WeatherService:
         self.timeout = timeout
         self.units = units if units in self.VALID_UNITS else "metric"
         self.session = session or requests.Session()
-        self.session.headers.update({"User-Agent": "WeatherWidget/6.0"})
+        self.session.headers.update({"User-Agent": "WeatherWidgetPremium/6.0"})
         retry = Retry(
             total=2,
             connect=2,
