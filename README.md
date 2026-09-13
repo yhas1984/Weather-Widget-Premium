@@ -20,6 +20,29 @@ Widget meteorológico de escritorio premium para Linux (X11 y Wayland), desarrol
 | **Red no bloqueante** | Las consultas se ejecutan fuera del hilo de interfaz |
 | **Unidades reales** | Cambio entre °C/km/h/mm y °F/mph/in desde el menú contextual |
 
+## Apariencias
+
+Capturas generadas directamente por el renderer de Weather Widget Premium con los mismos datos de demostración, tamaño y opacidad.
+
+<table>
+  <tr>
+    <th>Atmospheric</th>
+    <th>Glass</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/theme-atmospheric.png" alt="Weather Widget Premium con tema Atmospheric" width="360"></td>
+    <td><img src="docs/screenshots/theme-glass.png" alt="Weather Widget Premium con tema Glass" width="360"></td>
+  </tr>
+  <tr>
+    <th>Minimal</th>
+    <th>Pearl</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/theme-minimal.png" alt="Weather Widget Premium con tema Minimal" width="360"></td>
+    <td><img src="docs/screenshots/theme-pearl.png" alt="Weather Widget Premium con tema Pearl" width="360"></td>
+  </tr>
+</table>
+
 ## Requisitos
 
 - Python 3.8+
