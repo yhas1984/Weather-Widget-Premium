@@ -64,7 +64,7 @@ chmod 0644 "${PKG}/DEBIAN/control"
 
 OUT="${ROOT}/weather-widget-premium_${VERSION}_amd64.deb"
 dpkg-deb --build --root-owner-group "${PKG}" "${OUT}"
-sha256sum "${OUT}" > "${OUT}.sha256"
+(cd "${ROOT}" && sha256sum "$(basename "${OUT}")") > "${OUT}.sha256"
 dpkg-deb --info "${OUT}"
 dpkg-deb --contents "${OUT}" | grep -E 'opt/weather-widget-premium/WeatherWidgetPremium|usr/bin/weather-widget-premium|usr/share/applications|usr/share/icons|SOURCE.txt'
 file "${DIST}/WeatherWidgetPremium"
