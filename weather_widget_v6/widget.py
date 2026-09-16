@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QDialog, QMainWindow, QMenu
 from .city_search import CitySearchDialog
 from .conditions import condition
 from .config import load_cache, load_settings, save_cache, save_settings
-from .linux_desktop import apply_x11_widget_hints, session_backend
+from .linux_desktop import configure_desktop_window, restack_desktop_window
 from .models import WeatherData
 from .service import WeatherService
 from .weather_icons import draw_weather_icon
@@ -32,6 +32,7 @@ class PremiumWeatherWidget(QMainWindow):
         self.settings = load_settings()
         self.service = WeatherService(units=self.settings.get("units", "metric"))
         self.workers = set()
+        self.active_worker = None
         self.weather = self._cached_weather()
         self.loading = False
         self.refresh_again = False
@@ -48,14 +49,11 @@ class PremiumWeatherWidget(QMainWindow):
         self.setWindowTitle("Weather Widget Premium")
         self.resize(self.WIDTH, self.COLLAPSED)
         self.setMinimumWidth(360)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnBottomHint | Qt.WindowType.Tool)
+        configure_desktop_window(self)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setAutoFillBackground(False)
-        dock_attr = getattr(Qt.WidgetAttribute, "WA_X11NetWmWindowTypeDock", None)
-        if session_backend() == "x11" and dock_attr is not None:
-            self.setAttribute(dock_attr, True)
 
         screen = self.screen().availableGeometry()
         saved = self.settings.get("position")
@@ -80,9 +78,19 @@ class PremiumWeatherWidget(QMainWindow):
         self.startup_timer.start(150)
 
     def _cached_weather(self):
-        payload = load_cache(self.settings.get("location"), self.settings.get("units", "metric"))
+        key = "last_auto_location" if self.settings.get("auto_location", True) else "location"
+        location = self.settings.get(key)
+        if not location:
+            return None
+        payload = load_cache(location, self.settings.get("units", "metric"))
         try:
-            return WeatherData.from_dict(payload) if payload else None
+            weather = WeatherData.from_dict(payload) if payload else None
+            # Legacy caches were not scoped by city. Never restore another location.
+            if weather and (round(weather.latitude, 4), round(weather.longitude, 4)) != (
+                round(location["latitude"], 4), round(location["longitude"], 4)
+            ):
+                return None
+            return weather
         except (KeyError, TypeError, ValueError):
             return None
 
@@ -93,9 +101,8 @@ class PremiumWeatherWidget(QMainWindow):
             self.offline_message = "No se pudo guardar la configuración"
 
     def _apply_platform_hints(self):
-        if session_backend() == "x11":
-            apply_x11_widget_hints(int(self.winId()))
-        self.lower()
+        if not self.closing:
+            restack_desktop_window(self)
 
     def maintain_desktop_state(self):
         if self.closing or self.dragging or self.menu_open:
@@ -104,8 +111,7 @@ class PremiumWeatherWidget(QMainWindow):
             self.setWindowState(Qt.WindowState.WindowNoState)
         if not self.isVisible():
             self.show()
-        if not self.isActiveWindow():
-            self.lower()
+        restack_desktop_window(self)
 
     def refresh_weather(self):
         if self.loading or self.closing:
@@ -121,28 +127,40 @@ class PremiumWeatherWidget(QMainWindow):
             self.settings.get("location"),
             bool(self.settings.get("auto_location", True)),
         )
-        worker.signals.result.connect(self.on_weather)
-        worker.signals.error.connect(self.on_weather_error)
+        self.active_worker = worker
+        worker.signals.result.connect(lambda weather, current=worker: self.on_weather(weather, current))
+        worker.signals.error.connect(lambda message, current=worker: self.on_weather_error(message, current))
         self.workers.add(worker)
         worker.signals.finished.connect(lambda current=worker: self.on_worker_finished(current))
         worker.start()
         self.update()
 
-    def on_weather(self, weather):
+    def on_weather(self, weather, worker=None):
+        if self.closing or (worker is not None and worker is not self.active_worker):
+            return
         expected_imperial = self.settings.get("units") == "imperial"
         if (weather.temperature_unit == "°F") != expected_imperial:
             return
         self.weather, self.offline_message = weather, ""
+        location = {"latitude": weather.latitude, "longitude": weather.longitude, "label": weather.city}
+        key = "last_auto_location" if self.settings.get("auto_location", True) else "location"
+        self.settings[key] = location
+        self._safe_save_settings()
         try:
             save_cache(weather.to_dict())
         except OSError:
             pass
         self.update()
 
-    def on_weather_error(self, message: str):
+    def on_weather_error(self, message: str, worker=None):
+        if self.closing or (worker is not None and worker is not self.active_worker):
+            return
         if self.weather:
             self.weather.stale = True
-            self.offline_message = f"Sin conexión · datos de hace {self.weather.age_minutes} min"
+            failure = "Ubicación IP no disponible" if self.settings.get("auto_location", True) and "ubicación" in message.lower() else "No se pudo actualizar"
+            self.offline_message = f"{failure} · datos de hace {self.weather.age_minutes} min"
+        elif self.settings.get("auto_location", True) and "ubicación" in message.lower():
+            self.offline_message = "Ubicación IP no disponible · elige una ciudad"
         elif "ubicación" in message.lower() or "elige una ciudad" in message.lower():
             self.offline_message = "Elige una ciudad desde el menú"
         else:
@@ -151,6 +169,9 @@ class PremiumWeatherWidget(QMainWindow):
 
     def on_worker_finished(self, worker=None):
         self.workers.discard(worker)
+        if worker is not self.active_worker:
+            return
+        self.active_worker = None
         self.loading = False
         refresh_again, self.refresh_again = self.refresh_again, False
         if self.closing:
@@ -158,6 +179,27 @@ class PremiumWeatherWidget(QMainWindow):
         elif refresh_again:
             QTimer.singleShot(0, self.refresh_weather)
         self.update()
+
+    def _restart_weather(self):
+        """Start the new selection immediately; old requests may finish but are ignored."""
+        self.active_worker = None
+        self.loading = False
+        self.refresh_again = False
+        # A pending worker retains its own session while the new one starts.
+        self.service = WeatherService(units=self.settings.get("units", "metric"))
+        self.weather = self._cached_weather()
+        self._safe_save_settings()
+        self.refresh_weather()
+
+    def set_auto_location(self, enabled: bool):
+        self.settings["auto_location"] = bool(enabled)
+        self._restart_weather()
+
+    def select_location(self, location: dict):
+        self.settings["auto_location"] = False
+        self.settings["manual_city"] = str(location.get("query") or location["label"])
+        self.settings["location"] = dict(location) if "latitude" in location and "longitude" in location else None
+        self._restart_weather()
 
     def animate(self):
         elapsed = min(.1, self.clock.restart() / 1000)
@@ -256,15 +298,9 @@ class PremiumWeatherWidget(QMainWindow):
             self._safe_save_settings(); self.update()
         elif chosen in unit_actions:
             self.settings["units"] = unit_actions[chosen]
-            self.service = WeatherService(units=self.settings["units"])
-            self.weather = self._cached_weather()
-            self.offline_message = f"Datos guardados · hace {self.weather.age_minutes} min" if self.weather else ""
-            self._safe_save_settings(); self.refresh_weather(); self.update()
+            self._restart_weather()
         elif chosen == auto_location:
-            self.settings["auto_location"] = auto_location.isChecked()
-            self._safe_save_settings()
-            if self.settings["auto_location"] and not self.settings.get("location"):
-                self.refresh_weather()
+            self.set_auto_location(auto_location.isChecked())
         elif chosen == quit_action:
             self.close()
 
@@ -278,14 +314,7 @@ class PremiumWeatherWidget(QMainWindow):
             background_opacity=float(self.settings.get("opacity", .55)),
         )
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.selected_location:
-            location = dialog.selected_location
-            self.settings["manual_city"] = str(location.get("query") or location["label"])
-            if "latitude" in location and "longitude" in location:
-                self.settings["location"] = location
-            else:
-                self.settings["location"] = None
-            self._safe_save_settings()
-            self.refresh_weather()
+            self.select_location(dialog.selected_location)
 
     def hideEvent(self, event):
         super().hideEvent(event)
@@ -368,10 +397,11 @@ class PremiumWeatherWidget(QMainWindow):
         base = (18, 43, 62) if self.settings.get("theme") == "Pearl" else (255, 255, 255)
         return QColor(*base, self.surface_alpha(alpha))
 
-    def paint_weather_icon(self, painter, rect, code, is_day=True):
+    def paint_weather_icon(self, painter, rect, code, is_day=True, animated=False):
         draw_weather_icon(
             painter, rect, code, is_day,
             self.color("accent", 240), self.color("text", 242), self.color("muted", 225),
+            phase=self.phase if animated and self.settings.get("animations", True) else None,
         )
 
     def draw_card(self, painter, rect):
@@ -419,11 +449,12 @@ class PremiumWeatherWidget(QMainWindow):
         painter.setPen(self.color("text", 244)); painter.setFont(QFont("Inter", 12, QFont.Weight.DemiBold))
         city = painter.fontMetrics().elidedText(self.weather.city.split(",")[0], Qt.TextElideMode.ElideRight, self.width() - 92); painter.drawText(28, 40, city)
         painter.setFont(QFont("Inter", 8)); painter.setPen(self.color("muted", 180))
-        status = "Actualizando…" if self.loading else (self.offline_message or f"Actualizado hace {self.weather.age_minutes} min"); painter.drawText(28, 59, status)
+        status = "Actualizando…" if self.loading else (self.offline_message or f"Actualizado hace {self.weather.age_minutes} min")
+        painter.drawText(28, 59, painter.fontMetrics().elidedText(status, Qt.TextElideMode.ElideRight, self.width() - 56))
         painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(self.color("accent", 210 if self.loading else 150)); painter.drawEllipse(QPointF(self.width() - 31, 37), 4.5, 4.5)
 
     def draw_hero(self, painter):
-        self.paint_weather_icon(painter, QRectF(25, 82, 76, 76), self.weather.weather_code, self.weather.is_day)
+        self.paint_weather_icon(painter, QRectF(25, 82, 76, 76), self.weather.weather_code, self.weather.is_day, animated=True)
         painter.setPen(self.temperature_color(self.weather.temperature, 248)); painter.setFont(QFont("Inter", 43, QFont.Weight.DemiBold)); painter.drawText(119, 128, f"{round(self.weather.temperature)}°")
         desc, _ = condition(self.weather.weather_code); painter.setFont(QFont("Inter", 10, QFont.Weight.Medium)); painter.setPen(self.color("muted", 220)); painter.drawText(122, 151, desc)
         painter.setFont(QFont("Inter", 9)); painter.setPen(self.color("muted", 180))

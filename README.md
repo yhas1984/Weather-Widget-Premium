@@ -88,7 +88,9 @@ El widget aparecerá en la esquina inferior derecha de la pantalla.
 
 El porcentaje mostrado como **Prob. 1 h** es la probabilidad prevista para la próxima hora, no una medición de lluvia actual. Las respuestas se validan antes de mostrarse, se reintentan los fallos transitorios y se conserva una caché independiente por ubicación y sistema de unidades durante un máximo de 24 horas.
 
-La ubicación automática por IP se puede desactivar desde el menú contextual. Si está desactivada o falla, el widget conserva los últimos datos válidos o solicita elegir una ciudad; no utiliza una ciudad predeterminada ficticia.
+La ubicación automática por IP y la ciudad manual son modos excluyentes. Activar **Ubicación automática por IP** consulta la ubicación inmediatamente y vuelve a detectarla en cada actualización (15 minutos por defecto). Elegir una ciudad en el buscador desactiva el modo automático. La selección manual queda recordada para recuperarla al desactivar la ubicación por IP.
+
+Si falla la localización automática, se muestra un aviso y, cuando existe, la caché de la última ubicación automática. No se sustituye silenciosamente por la ciudad manual. La ubicación por IP es aproximada y puede corresponder a la salida de una VPN o a la red del operador.
 
 ## Iconos
 
@@ -155,6 +157,20 @@ bash packaging/build-deb.sh 6.0.0
 El paquete instala `weather-widget-premium`, `/usr/bin/weather-widget-premium` y `weather-widget-premium.desktop`. Utiliza `~/.config/weather-widget-premium`, por lo que puede convivir con Weather Widget Classic sin sobrescribir sus preferencias. La primera ejecución copia, si existen, los ajustes V6 anteriores desde `~/.config/weather-widget` y después mantiene ambas configuraciones separadas.
 
 El ejecutable detecta automáticamente la plataforma Qt disponible y no fuerza XCB bajo Wayland.
+
+## Pruebas
+
+```bash
+QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -v
+```
+
+Para comprobar la composición real en una sesión X11:
+
+```bash
+QT_QPA_PLATFORM=xcb python tests/manual_x11_desktop.py
+```
+
+Esta prueba abre ventanas temporales y activa «Mostrar escritorio» durante unos segundos; al terminar restaura su estado anterior. No consulta la red ni utiliza tus preferencias. Comprueba el orden de las ventanas, los bordes transparentes, el fondo al 0 % y el movimiento del icono al activar/desactivar las animaciones. Guarda capturas recortadas del widget sobre un fondo de prueba en una carpeta temporal. Las pruebas offscreen por sí solas no detectan fallos del compositor.
 
 ## Licencia
 

@@ -23,6 +23,7 @@ DEFAULT_SETTINGS = {
     "config_version": CONFIG_VERSION,
     "manual_city": "",
     "location": None,
+    "last_auto_location": None,
     "favorites": ["Valencia", "Madrid", "Barcelona"],
     "theme": "Atmospheric",
     "units": "metric",
@@ -95,14 +96,15 @@ def load_settings() -> dict:
     position = data.get("position")
     if not (isinstance(position, list) and len(position) == 2 and all(isinstance(value, (int, float)) for value in position)):
         data["position"] = None
-    location = data.get("location")
-    if not (
-        isinstance(location, dict)
-        and isinstance(location.get("latitude"), (int, float))
-        and isinstance(location.get("longitude"), (int, float))
-        and isinstance(location.get("label"), str)
-    ):
-        data["location"] = None
+    for key in ("location", "last_auto_location"):
+        location = data.get(key)
+        if not (
+            isinstance(location, dict)
+            and isinstance(location.get("latitude"), (int, float))
+            and isinstance(location.get("longitude"), (int, float))
+            and isinstance(location.get("label"), str)
+        ):
+            data[key] = None
     return data
 
 
