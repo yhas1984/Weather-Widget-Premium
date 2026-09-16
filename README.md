@@ -129,7 +129,7 @@ El widget conserva el último estado válido en caché y lo muestra si Open-Mete
 
 ## Instalación desde `.deb`
 
-[Descargar Weather Widget Premium 6.0.0 para Debian/Ubuntu](https://github.com/yhas1984/Weather-Widget-Premium/releases/download/v6.0.0/weather-widget-premium_6.0.0_amd64.deb)
+[Descargar Weather Widget Premium 6.0.1 para Debian/Ubuntu](https://github.com/yhas1984/Weather-Widget-Premium/releases/download/v6.0.1/weather-widget-premium_6.0.1_amd64.deb)
 
 Después de descargar el archivo, instálalo con:
 
@@ -151,7 +151,7 @@ La API pública de Open-Meteo funciona sin credenciales para uso no comercial de
 
 ```bash
 python -m pip install -r requirements.txt
-bash packaging/build-deb.sh 6.0.0
+bash packaging/build-deb.sh 6.0.1
 ```
 
 El paquete instala `weather-widget-premium`, `/usr/bin/weather-widget-premium` y `weather-widget-premium.desktop`. Utiliza `~/.config/weather-widget-premium`, por lo que puede convivir con Weather Widget Classic sin sobrescribir sus preferencias. La primera ejecución copia, si existen, los ajustes V6 anteriores desde `~/.config/weather-widget` y después mantiene ambas configuraciones separadas.
