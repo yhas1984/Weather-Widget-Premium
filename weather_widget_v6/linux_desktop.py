@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import shutil
-import subprocess
-
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
 
 
@@ -15,18 +13,23 @@ def session_backend() -> str:
     return name
 
 
-def apply_x11_widget_hints(window_id: int) -> bool:
-    """Keep the widget visible without placing it behind the desktop shell."""
-    if session_backend() != "x11" or not shutil.which("xprop"):
-        return False
-    window = str(window_id)
-    commands = (
-        ("xprop", "-id", window, "-f", "_NET_WM_WINDOW_TYPE", "32a", "-set", "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DOCK"),
-        ("xprop", "-id", window, "-f", "_NET_WM_STATE", "32a", "-set", "_NET_WM_STATE", "_NET_WM_STATE_BELOW, _NET_WM_STATE_SKIP_TASKBAR, _NET_WM_STATE_SKIP_PAGER, _NET_WM_STATE_STICKY"),
-    )
-    try:
-        for command in commands:
-            subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return True
-    except OSError:
-        return False
+def configure_desktop_window(widget) -> None:
+    """Configure a translucent, below-applications surface before mapping it."""
+    flags = (Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool
+             | Qt.WindowType.WindowStaysOnBottomHint)
+    if session_backend() == "x11":
+        # KWin treats DESKTOP surfaces as opaque even with an ARGB visual.
+        # DOCK preserves alpha and survives Show Desktop; BELOW is essential
+        # to keep it underneath applications instead of in the normal panel layer.
+        # Qt sends BOTH hints before mapping. Never overwrite _NET_WM_STATE with
+        # xprop after showing: the WM owns it and can discard that late write.
+        widget.setAttribute(Qt.WidgetAttribute.WA_X11NetWmWindowTypeDock, True)
+    # On Wayland retain the best-effort Qt bottom hint, without forcing XCB.
+    widget.setWindowFlags(flags)
+
+
+def restack_desktop_window(widget) -> None:
+    # The WM's below-applications layer still sits above the desktop background.
+    # Do not periodically raise the widget or steal activation from another app.
+    if not widget.isActiveWindow():
+        widget.lower()

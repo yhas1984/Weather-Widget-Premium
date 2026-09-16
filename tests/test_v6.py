@@ -4,6 +4,7 @@ import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import requests
 
@@ -203,6 +204,64 @@ class WidgetTests(unittest.TestCase):
         self.assertEqual(widget.height(), widget.COLLAPSED)
         widget.close()
 
+    def test_main_icon_moves_in_all_themes_conditions_and_backgrounds(self):
+        widget = PremiumWeatherWidget()
+        widget.startup_timer.stop()
+        widget.weather = sample_weather()
+
+        def frame(phase):
+            widget.phase = phase
+            image = QImage(widget.size(), QImage.Format.Format_ARGB32_Premultiplied)
+            image.fill(0)
+            painter = QPainter(image)
+            widget.render(painter)
+            painter.end()
+            return image
+
+        try:
+            cases = [(0, True), (0, False), (2, True), (2, False),
+                     (3, True), (45, True), (51, True), (61, True), (71, True), (95, True)]
+            for theme in widget.THEMES:
+                for opacity in (0.0, .55):
+                    for code, day in cases:
+                        with self.subTest(theme=theme, opacity=opacity, code=code, day=day):
+                            widget.settings.update(theme=theme, opacity=opacity, animations=True)
+                            widget.weather.weather_code, widget.weather.is_day = code, day
+                            first, second = frame(.2), frame(1.7)
+                            self.assertNotEqual(first.copy(22, 78, 86, 86), second.copy(22, 78, 86, 86))
+                            self.assertEqual(second.pixelColor(0, 0).alpha(), 0)
+                            # The timer does not need to move the forecast or text.
+                            widget.settings["animations"] = False
+                            self.assertEqual(frame(.2), frame(1.7))
+        finally:
+            widget.close()
+
+    def test_animation_clock_stops_and_resumes_with_setting(self):
+        widget = PremiumWeatherWidget()
+        widget.startup_timer.stop()
+        widget.weather = sample_weather()
+        try:
+            with patch.object(widget, "isVisible", return_value=True), patch.object(widget, "clock") as clock:
+                clock.restart.return_value = 33
+                widget.settings["animations"] = True
+                initial = widget.phase
+                widget.animate()
+                self.assertGreater(widget.phase, initial)
+                widget.settings["animations"] = False
+                paused = widget.phase
+                widget.animate()
+                self.assertEqual(widget.phase, paused)
+                widget.settings["animations"] = True
+                widget.animate()
+                self.assertGreater(widget.phase, paused)
+                widget.settings["animations"] = True
+                with patch.object(widget, "isVisible", return_value=False):
+                    hidden = widget.phase
+                    widget.animate()
+                    self.assertEqual(widget.phase, hidden)
+        finally:
+            widget.close()
+
     def test_zero_opacity_removes_only_decorative_backgrounds(self):
         widget = PremiumWeatherWidget()
         widget.weather = sample_weather()
@@ -289,9 +348,109 @@ class WidgetTests(unittest.TestCase):
             "latitude": 39.4698,
             "longitude": -0.3774,
             "label": "Valencia, Comunitat Valenciana",
-        })
+        }, allow_ip_location=False)
         worker.run()
         self.assertEqual(service.received, (39.4698, -0.3774, "Valencia, Comunitat Valenciana"))
+
+    def test_automatic_mode_relocates_on_every_refresh_despite_saved_city(self):
+        class AutomaticService:
+            def __init__(self):
+                self.calls = []
+
+            def locate(self, city, allowed):
+                self.calls.append((city, allowed))
+                return len(self.calls), 2, "IP location"
+
+            def fetch(self, lat, lon, city):
+                self.received = (lat, lon, city)
+                return sample_weather()
+
+        service = AutomaticService()
+        for _ in range(2):
+            WeatherWorker(service, "Manual", {
+                "latitude": 40, "longitude": 3, "label": "Manual",
+            }, allow_ip_location=True).run()
+        self.assertEqual(service.calls, [("", True), ("", True)])
+        self.assertEqual(service.received, (2, 2, "IP location"))
+
+    def test_location_switch_discards_old_results_errors_and_completion(self):
+        jobs = []
+
+        def deferred_worker(*args):
+            worker = WeatherWorker(*args)
+            worker.start = lambda: None
+            jobs.append(worker)
+            return worker
+
+        widget = PremiumWeatherWidget()
+        widget.startup_timer.stop()
+        try:
+            with patch("weather_widget_v6.widget.WeatherWorker", side_effect=deferred_worker):
+                widget.select_location({"latitude": 39.47, "longitude": -.38, "label": "Manual"})
+                old = jobs[-1]
+                self.assertFalse(widget.settings["auto_location"])
+                widget.set_auto_location(True)
+                current = jobs[-1]
+                self.assertEqual(len(jobs), 2)
+                self.assertTrue(current.allow_ip_location)
+                old.signals.result.emit(sample_weather())
+                old.signals.error.emit("Error anterior")
+                old.signals.finished.emit()
+                self.assertIsNone(widget.weather)
+                self.assertEqual(widget.offline_message, "")
+                self.assertTrue(widget.loading)
+                self.assertIs(widget.active_worker, current)
+                self.assertIsNone(config.load_cache())
+                weather = sample_weather()
+                weather.city, weather.latitude = "IP location", 41
+                current.signals.result.emit(weather)
+                current.signals.finished.emit()
+                self.assertEqual(widget.weather.city, "IP location")
+                self.assertEqual(widget.settings["last_auto_location"]["latitude"], 41)
+                self.assertEqual(widget.settings["location"]["label"], "Manual")
+                self.assertFalse(widget.loading)
+                self.assertEqual(widget._cached_weather().city, "IP location")
+                widget.set_auto_location(False)
+                self.assertFalse(jobs[-1].allow_ip_location)
+                self.assertEqual(jobs[-1].location["label"], "Manual")
+                # Switching to manual must not reuse the IP cache.
+                self.assertIsNone(widget.weather)
+                jobs[-1].signals.finished.emit()
+                self.assertFalse(config.load_settings()["auto_location"])
+        finally:
+            widget.close()
+
+    def test_automatic_failure_preserves_only_last_automatic_cache(self):
+        manual = sample_weather()
+        config.save_cache(manual.to_dict())
+        widget = PremiumWeatherWidget()
+        widget.startup_timer.stop()
+        try:
+            widget.settings.update({"auto_location": True, "location": {
+                "latitude": manual.latitude, "longitude": manual.longitude, "label": manual.city,
+            }})
+            self.assertIsNone(widget._cached_weather())
+            automatic = sample_weather()
+            automatic.city, automatic.latitude = "IP location", 41
+            widget.on_weather(automatic)
+            widget.on_weather_error("No se pudo determinar la ubicación")
+            self.assertTrue(widget.weather.stale)
+            self.assertEqual(widget.weather.city, "IP location")
+            self.assertIn("Ubicación IP no disponible", widget.offline_message)
+            self.assertEqual(widget._cached_weather().city, "IP location")
+        finally:
+            widget.close()
+
+    def test_manual_mode_without_city_never_queries_ip(self):
+        service = WeatherService()
+        errors = []
+        with patch.object(service.session, "get") as get:
+            worker = WeatherWorker(service, allow_ip_location=False)
+            worker.signals.error.connect(errors.append)
+            worker.run()
+            get.assert_not_called()
+        self.assertTrue(errors)
+        self.assertIn("Elige una ciudad", errors[0])
 
 
 if __name__ == "__main__":

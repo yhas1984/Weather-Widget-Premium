@@ -31,7 +31,10 @@ class WeatherWorker:
 
     def run(self):
         try:
-            if self.location:
+            if self.allow_ip_location:
+                # Automatic mode must take precedence over remembered manual choices.
+                lat, lon, city = self.service.locate("", True)
+            elif self.location:
                 lat = float(self.location["latitude"])
                 lon = float(self.location["longitude"])
                 city = str(self.location["label"])
